@@ -19,13 +19,14 @@ function extract_args(expr)
 end
 
 function process_func!(func_expr)
-    for (i, arg) in enumerate(func_expr.args[2:end])
+    for (i, arg) in enumerate(func_expr.args)
+        i == 1 && continue # Func name
         if Meta.isexpr(arg, :parameters)
             for (ki, kwarg) in enumerate(arg.args)
                 arg[ki] = process_kwarg(kwarg)
             end
         else
-            args[i] = process_arg(arg)
+            func_expr.args[i] = process_arg(arg)
         end
     end
 end
@@ -54,6 +55,7 @@ macro check_allocations(expr)
     if limit isa Expr
         limit = esc(limit)
     end
+    process_func!(func)
     passed = Expr(:call, op, :allocations, limit)
     be_expr = Chairmarks.process_args((func, :(evals = 1), :(samples = 0)))
     :(let
@@ -64,3 +66,4 @@ macro check_allocations(expr)
 end
 
 end # module TestAllocations
+
