@@ -4,18 +4,18 @@ module TestAllocations
 using Chairmarks: Chairmarks
 using Test
 
-export @check_allocations
+export @nallocs
 
-function extract_args(expr)
+function check_expr(expr)
     Meta.isexpr(expr, :call) || error("The first argument to this macro must be a function call")
-    op, func, limit = if expr.args[1] in (:(==), :(!=), :(<), :(<=), :(>), :(>=), :(===), :(!==))
-        # We have an explicit test provided
-        expr.args
+    if expr.args[1] in (:(==), :(!=), :(<), :(<=), :(>), :(>=), :(===), :(!==))
+        func = sprint(print, expr.args[2])
+        op = sprint(print, expr.args[1])
+        val = sprint(print, expr.args[3])
+        ErrorException("You have included the comparison operator within the `@nallocs` macro.\nRemember to use the parenthesis form of the macro call in these cases:\n- `@nallocs($func) $op $val")
     else
-        # We have only the function, so we assume op is == and limit is 0
-        :(==), expr, 0
+        expr
     end
-    (; op, func, limit)
 end
 
 function process_func!(func_expr)
@@ -59,23 +59,9 @@ function process_kwarg(kwarg)
 end
 
 """
-    @check_allocations func_call
-    @check_allocations func_call op val
+    @nallocs(func_call)
 
-Evaluate the allocations of calling the function identified by the `func_call` expression using `Chairmarks` and making sure that all arguments and keyword arguments within `func_call` are interpolated to avoid phantom allocations.
-
-Optionally, a check on the number of allocations can be performed with the extended signature containing `op` and `val`, where `op` can be one of:
- - `==`
- - `!=`
- - `<`
- - `<=`
- - `>`
- - `>=`
-
-and `val` is either a number or a symbol/expression that is evaluated in the caller's scope.
-
-When called with just one argument, the macro is equivalent to:
-- `@check_allocations func_call == 0`
+Evaluate the number of allocations when calling the function identified by the `func_call` expression. It uses `Chairmarks` internally with `evals=1, samples = 0` and makes sure that all arguments and keyword arguments within `func_call` are interpolated to avoid phantom allocations.
 
 This function is mostly useful during tests, and it can be chained with the `@test` macro directly as
 
@@ -91,26 +77,22 @@ c = 2
 args = (3, 5)
 kwargs = (;f = 5, ff = 15)
 
-@test @check_allocations f(a, 3; c, d = g()) # passes as no allocations
-@test @check_allocations f(a, 3+2, args...; c, d = g(), kwargs...) < c 
+@test @nallocs(f(a, 3; c, d = g())) == 0 # passes as no allocations
+@test @nallocs(f(a, 3+2, args...; c, d = g(), kwargs...)) < c # passes as no allocations
 
 # output
 
 Test Passed
 ```
 """
-macro check_allocations(expr)
-    (; op, func, limit) = extract_args(expr)
-    if limit isa Union{Symbol, Expr}
-        limit = esc(limit)
-    end
+macro nallocs(expr)
+    func = check_expr(expr)
+    func isa ErrorException && return :(throw($func))
     process_func!(func)
-    passed = Expr(:call, op, :allocations, limit)
     be_expr = Chairmarks.process_args((func, :(evals = 1), :(samples = 0)))
     :(let
         b = $be_expr
         allocations = first(b.samples).allocs
-        $passed
     end)
 end
 
