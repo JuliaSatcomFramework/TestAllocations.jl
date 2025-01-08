@@ -80,15 +80,23 @@ When called with just one argument, the macro is equivalent to:
 This function is mostly useful during tests, and it can be chained with the `@test` macro directly as
 
 # Example
-```julia
+```jldoctest
+using TestAllocations
+using Test
+
 f(args...;kwargs...) = reduce(+, args; init=0) + reduce(+, values(kwargs); init=0)
 g() = 5
 a = 1
 c = 2
 args = (3, 5)
 kwargs = (;f = 5, ff = 15)
-@test @check_allocations f(a, 3, args; c, d = g()) # passes as no allocations
+
+@test @check_allocations f(a, 3; c, d = g()) # passes as no allocations
 @test @check_allocations f(a, 3+2, args...; c, d = g(), kwargs...) < c 
+
+# output
+
+Test Passed
 ```
 """
 macro check_allocations(expr)
