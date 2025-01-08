@@ -29,18 +29,16 @@ function process_func!(func_expr)
     end
 end
 
-function process_arg(arg)
-    Meta.isexpr(arg, :kw) && error("Only pass keyword arguments after the `;` within the @check_allocations macro")
-    if arg isa Symbol
-        Expr(:$, arg)
-    elseif arg isa Expr
-        if Meta.isexpr(arg, :(...))
-            Expr(:..., process_arg(arg.args[1]))
-        else
-            Expr(:$, arg)
-        end
+process_arg(s::Symbol) = Expr(:$, s)
+process_arg(arg) = arg
+function process_arg(arg::Expr)
+    arg.head === :kw && error("Only pass keyword arguments after the `;` within the @check_allocations macro")
+    if Meta.isexpr(arg, :(...))
+        Expr(:..., process_arg(arg.args[1]))
+    elseif Meta.isexpr(arg, :$)
+        arg.args[1]
     else
-        arg
+        Expr(:$, arg)
     end
 end
 
@@ -60,6 +58,8 @@ end
     @nallocs(func_call)
 
 Evaluate the number of allocations when calling the function identified by the `func_call` expression. It uses `Chairmarks` internally with `evals=1, samples = 0` and makes sure that all arguments and keyword arguments within `func_call` are interpolated to avoid phantom allocations.
+
+In some cases, one might want to avoid interpolating args and kwargs before passing them to the function call. To do this, one can use the `\$` operator in front of the variables that should not be interpolated, effectively reversing the effect of interpolation w.r.t. the `@be` macro
 
 This function is mostly useful during tests, and it can be chained with the `@test` macro directly as
 
