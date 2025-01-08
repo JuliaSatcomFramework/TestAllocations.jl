@@ -1,8 +1,6 @@
 module TestAllocations
 
-
 using Chairmarks: Chairmarks
-using Test
 
 export @nallocs
 
