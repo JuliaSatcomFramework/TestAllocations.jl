@@ -33,8 +33,14 @@ end
 
 function process_arg(arg)
     Meta.isexpr(arg, :kw) && error("Only pass keyword arguments after the `;` within the @check_allocations macro")
-    if arg isa Union{Expr, Symbol}
+    if arg isa Symbol
         Expr(:$, arg)
+    elseif arg isa Expr
+        if Meta.isexpr(arg, :(...))
+            Expr(:..., process_arg(arg.args[1]))
+        else
+            Expr(:$, arg)
+        end
     else
         arg
     end
@@ -45,6 +51,8 @@ function process_kwarg(kwarg)
         Expr(:kw, kwarg, process_arg(kwarg))
     elseif Meta.isexpr(kwarg, :kw)
         Expr(:kw, kwarg.args[1], process_arg(kwarg.args[2]))
+    elseif Meta.isexpr(kwarg, :(...))
+        process_arg(kwarg)
     else
         error("Invalid keyword argument: $kwarg")
     end
@@ -73,12 +81,14 @@ This function is mostly useful during tests, and it can be chained with the `@te
 
 # Example
 ```julia
-f(a,b;c,d) = a+b+c+d
+f(args...;kwargs...) = reduce(+, args; init=0) + reduce(+, values(kwargs); init=0)
 g() = 5
 a = 1
 c = 2
-@test @check_allocations f(a, 3; c, d = g()) # passes as no allocations
-@test @check_allocations f(a, 3+2; c, d = g()) < c 
+args = (3, 5)
+kwargs = (;f = 5, ff = 15)
+@test @check_allocations f(a, 3, args; c, d = g()) # passes as no allocations
+@test @check_allocations f(a, 3+2, args...; c, d = g(), kwargs...) < c 
 ```
 """
 macro check_allocations(expr)
