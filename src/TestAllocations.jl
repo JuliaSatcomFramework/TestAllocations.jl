@@ -23,7 +23,7 @@ function process_func!(func_expr)
         i == 1 && continue # Func name
         if Meta.isexpr(arg, :parameters)
             for (ki, kwarg) in enumerate(arg.args)
-                arg[ki] = process_kwarg(kwarg)
+                arg.args[ki] = process_kwarg(kwarg)
             end
         else
             func_expr.args[i] = process_arg(arg)
@@ -50,9 +50,40 @@ function process_kwarg(kwarg)
     end
 end
 
+"""
+    @check_allocations func_call
+    @check_allocations func_call op val
+
+Evaluate the allocations of calling the function identified by the `func_call` expression using `Chairmarks` and making sure that all arguments and keyword arguments within `func_call` are interpolated to avoid phantom allocations.
+
+Optionally, a check on the number of allocations can be performed with the extended signature containing `op` and `val`, where `op` can be one of:
+ - `==`
+ - `!=`
+ - `<`
+ - `<=`
+ - `>`
+ - `>=`
+
+and `val` is either a number or a symbol/expression that is evaluated in the caller's scope.
+
+When called with just one argument, the macro is equivalent to:
+- `@check_allocations func_call == 0`
+
+This function is mostly useful during tests, and it can be chained with the `@test` macro directly as
+
+# Example
+```julia
+f(a,b;c,d) = a+b+c+d
+g() = 5
+a = 1
+c = 2
+@test @check_allocations f(a, 3; c, d = g()) # passes as no allocations
+@test @check_allocations f(a, 3+2; c, d = g()) < c 
+```
+"""
 macro check_allocations(expr)
     (; op, func, limit) = extract_args(expr)
-    if limit isa Expr
+    if limit isa Union{Symbol, Expr}
         limit = esc(limit)
     end
     process_func!(func)
