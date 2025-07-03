@@ -1,7 +1,7 @@
 name = "TestAllocations"
 uuid = "31fccf1a-3a64-44c3-87f8-a03bc812acf0"
 authors = ["Alberto Mengali <disberd@gmail.com>"]
-version = "0.1.0"
+version = "0.1.1"
 
 [deps]
 Chairmarks = "0ca39b1e-fe0b-4e98-acfc-b1656634c4de"
