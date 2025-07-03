@@ -45,4 +45,4 @@ jobs:
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          slug: JuliaSatcomFramework/GeoBasics.jl
+          slug: JuliaSatcomFramework/TestAllocations.jl
